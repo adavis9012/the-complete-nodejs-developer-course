@@ -44,6 +44,8 @@ const userSchema = new mongoose.Schema({
       }
     }
   ]
+}, {
+  timestamps: true
 });
 
 userSchema.statics.findByCredentials = async (email, passwort) => {

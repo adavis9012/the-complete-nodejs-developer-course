@@ -18,9 +18,39 @@ router.post('/aufgabe', auth, async (req, res) => {
   }
 });
 
+// GET /aufgaben?fertig=true
+// GET /aufgaben?limit=10&seite=2
+// GET /aufgaben?sortBy=createdAt:asc
 router.get('/aufgaben', auth, async (req, res) => {
+  let { fertig, limit, seite, sortBy } = req.query;
+  let match = {};
+  let sort = {};
+  let options = {};
+
+  limit = parseInt(limit);
+  seite = (parseInt(seite) - 1) * limit;
+
+  if (sortBy) {
+    const parts = sortBy.split(':');
+    sort[parts[0]] = parts[1] === 'desc' ? -1 : 1;
+  }
+
+  if (fertig) {
+    match.fertig = fertig === 'true';
+  }
+
+  options = {
+    limit,
+    skip: seite,
+    sort
+  };
+
   try {
-    await req.user.populate('aufgaben').execPopulate();
+    await req.user.populate({
+      path: 'aufgaben',
+      match,
+      options
+    }).execPopulate();
 
     res.send(req.user.aufgaben);
   } catch (e) {
@@ -68,7 +98,7 @@ router.delete('/aufgabe/:id', auth, async (req, res) => {
   const _id = req.params.id;
 
   try {
-    const ausgabe = await Aufgabe.findOneAndDelete({_id, owner: req.user._id});
+    const ausgabe = await Aufgabe.findOneAndDelete({ _id, owner: req.user._id });
 
     if (!ausgabe) return res.status(404).send({ error: `ID ${_id} nicht gefunden` });
 

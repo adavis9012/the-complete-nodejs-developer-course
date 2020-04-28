@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const Task = mongoose.model('Aufgabe', {
+const aufgabeSchema = mongoose.Schema({
   bescreibung: {
     type: String,
     required: true,
@@ -15,6 +15,10 @@ const Task = mongoose.model('Aufgabe', {
     required: true,
     ref: 'User'
   }
+}, {
+  timestamps: true
 });
 
-module.exports = Task;
+const Aufgabe = mongoose.model('Aufgabe', aufgabeSchema );
+
+module.exports = Aufgabe;
