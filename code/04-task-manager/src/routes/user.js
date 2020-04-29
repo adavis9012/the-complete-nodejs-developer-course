@@ -1,20 +1,38 @@
 const express = require('express');
 const User = require('../models/user');
-const router = new express.Router;
+const multer = require('multer');
+const sharp = require('sharp');
+const { sendWillkommenEmail, sendAbsagenEmail } = require('../emails/account');
 const auth = require('../middleware/auth');
+
+const router = new express.Router;
+const upload = multer({
+    limits: {
+        fileSize: 1000000
+    },
+    fileFilter(req, file, cb) {
+        if (!file.originalname.match(/\.(jpg|jpeg|png)$/)) {
+            cb(new Error('Bitte landen Sie ein gültiges Bild hoch'));
+        }
+
+        cb(undefined, true);
+    }
+});
+
 
 router.post('/user', async (req, res) => {
     const user = new User(req.body);
 
     try {
         await user.save();
+        sendWillkommenEmail(user.email, user.name);
 
         const token = await user.generateAuthToken();
 
         res.status(201).send({ user, token });
 
     } catch (e) {
-        res.status(400).send({fehler: e.message});
+        res.status(400).send({ fehler: e.message });
     }
 
 });
@@ -40,8 +58,20 @@ router.post('/user/logout', auth, async (req, res) => {
         await req.user.save();
         res.send();
     } catch (e) {
-        res.status(500).send({fehler: e.message});
+        res.status(500).send({ fehler: e.message });
     }
+});
+
+router.post('/user/ich/avatar', auth, upload.single('avatar'), async (req, res) => {
+    const imgProps = { width: 250, height: 250 };
+    const buffer = await sharp(req.file.buffer).resize(imgProps).png().toBuffer();
+
+    req.user.avatar = buffer;
+
+    await req.user.save();
+    res.send();
+}, (error, req, res, next) => {
+    res.status(400).send({ fehler: error.message });
 });
 
 router.get('/users', auth, async (req, res) => {
@@ -68,7 +98,23 @@ router.get('/user/:id', async (req, res) => {
 
         res.send(user);
     } catch (e) {
-        res.status(500).send({fehler: e.message});
+        res.status(500).send({ fehler: e.message });
+    }
+});
+
+router.get('/user/:id/avatar', async (req, res) => {
+    try {
+        const id = req.params.id;
+        const user = await User.findById(id);
+
+        if (!user || !user.avatar) {
+            throw new Error(`ID ${id} nicht gefunden`);
+        }
+
+        res.set('Content-Type', 'image/png');
+        res.send(user.avatar);
+    } catch (e) {
+        res.status(400).send({ fehler: e.message });
     }
 });
 
@@ -91,10 +137,18 @@ router.patch('/user/ich', auth, async (req, res) => {
 router.delete('/user/ich', auth, async (req, res) => {
     try {
         await req.user.remove();
+        sendAbsagenEmail(req.user.email, req.user.name);
         res.send(req.user);
     } catch (e) {
         res.status(500).send({ fehler: e.message });
     }
+});
+
+router.delete('/user/ich/avatar', auth, async (req, res) => {
+    req.user.avatar = undefined;
+
+    await req.user.save();
+    res.send();
 });
 
 module.exports = router;

@@ -43,7 +43,10 @@ const userSchema = new mongoose.Schema({
         require: true
       }
     }
-  ]
+  ],
+  avatar: {
+    type: Buffer
+  }
 }, {
   timestamps: true
 });
@@ -62,7 +65,7 @@ userSchema.statics.findByCredentials = async (email, passwort) => {
 
 userSchema.methods.generateAuthToken = async function () {
   const user = this;
-  const token = jwt.sign({ _id: user.id.toString() }, 'thisismynewcourse');
+  const token = jwt.sign({ _id: user.id.toString() }, process.env.JWT_SECRET);
 
   user.tokens = user.tokens.concat({ token });
 
@@ -71,12 +74,14 @@ userSchema.methods.generateAuthToken = async function () {
   return token;
 };
 
+// Anwort blenden diese Informationen aus
 userSchema.methods.toJSON = function () {
   const user = this;
   const userObject = user.toObject();
 
   delete userObject.passwort;
   delete userObject.tokens;
+  delete userObject.avatar;
 
   return userObject;
 };
